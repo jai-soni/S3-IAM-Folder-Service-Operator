@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: team2-kubeop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: team2-kubeop
+  template:
+    metadata:
+      labels:
+        name: team2-kubeop
+    spec:
+      serviceAccountName: team2-kubeop
+      containers:
+        - name: team2-kubeop
+          # Replace this with the built image name
+          image: REPLACE_IMAGE
+          command:
+          - team2-kubeop
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "team2-kubeop"
