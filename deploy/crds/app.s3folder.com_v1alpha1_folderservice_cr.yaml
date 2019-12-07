@@ -4,4 +4,4 @@ metadata:
   name: example-folderservice
 spec:
   # Add fields here
-  # sleep: "300"
+  sleep: "300"
