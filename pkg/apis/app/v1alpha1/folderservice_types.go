@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -14,8 +15,11 @@ type FolderServiceSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	// Sleep string `json:"sleep"`
-	UserName   string     `json:"username"`
-	UserSecret UserSecret `json:"userSecret"`
+
+	// CertificateSecret is the reference to the secret where certificates are stored.
+	CertificateSecret corev1.ObjectReference `json:"certificateSecret"`
+	UserName          string                 `json:"username"`
+	Usersecret        UserSecret             `json:"userSecret"`
 }
 
 // UserSecret defines the type of Usersecret struct

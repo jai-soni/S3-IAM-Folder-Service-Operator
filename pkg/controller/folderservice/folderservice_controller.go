@@ -3,6 +3,7 @@ package folderservice
 import (
 	"context"
 
+	"github.com/sreeragsreenath/team2-kubeop/cmd/manager/tools/aws_s3_custom"
 	appv1alpha1 "github.com/sreeragsreenath/team2-kubeop/pkg/apis/app/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -102,6 +103,7 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 
 	// Define a new Pod object
 	pod := newPodForCR(instance)
+	aws_s3_custom.Create()
 
 	// Set FolderService instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {

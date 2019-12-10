@@ -67,8 +67,25 @@ func schema_pkg_apis_app_v1alpha1_FolderServiceSpec(ref common.ReferenceCallback
 			SchemaProps: spec.SchemaProps{
 				Description: "FolderServiceSpec defines the desired state of FolderService",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html Sleep string `json:\"sleep\"`",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"userSecret": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/app/v1alpha1.UserSecret"),
+						},
+					},
+				},
+				Required: []string{"username", "userSecret"},
 			},
 		},
+		Dependencies: []string{
+			"./pkg/apis/app/v1alpha1.UserSecret"},
 	}
 }
 

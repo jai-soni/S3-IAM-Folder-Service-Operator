@@ -4,6 +4,6 @@ metadata:
   name: example-folderservice
   namespace: default
 spec:
-  username: username
+  username: Hello
   userSecret:
     name: username-secret
