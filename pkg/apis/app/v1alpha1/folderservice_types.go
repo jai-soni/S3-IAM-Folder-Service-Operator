@@ -17,9 +17,9 @@ type FolderServiceSpec struct {
 	// Sleep string `json:"sleep"`
 
 	// CertificateSecret is the reference to the secret where certificates are stored.
-	CertificateSecret corev1.ObjectReference `json:"certificateSecret"`
-	UserName          string                 `json:"username"`
-	Usersecret        UserSecret             `json:"userSecret"`
+	UserName        string          `json:"username"`
+	Usersecret      UserSecret      `json:"userSecret"`
+	PlatformSecrets PlatformSecrets `json:"platformSecrets"`
 }
 
 // UserSecret defines the type of Usersecret struct
@@ -57,6 +57,18 @@ type FolderServiceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []FolderService `json:"items"`
+}
+
+// PlatformSecrets defines the secrets to be used by various clouds.
+type PlatformSecrets struct {
+	AWS *AWSPlatformSecrets `json:"aws"`
+}
+
+// AWSPlatformSecrets contains secrets for clusters on the AWS platform.
+type AWSPlatformSecrets struct {
+	// Credentials refers to a secret that contains the AWS account access
+	// credentials.
+	Credentials corev1.LocalObjectReference `json:"credentials"`
 }
 
 func init() {

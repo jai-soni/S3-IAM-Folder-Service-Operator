@@ -2,6 +2,10 @@ package folderservice
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path"
+	"strings"
 
 	"github.com/sreeragsreenath/team2-kubeop/cmd/manager/tools/aws_s3_custom"
 	appv1alpha1 "github.com/sreeragsreenath/team2-kubeop/pkg/apis/app/v1alpha1"
@@ -10,6 +14,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -18,6 +25,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+)
+
+const (
+	awsCredsSecretIDKey     = "AWS_ACCESS_KEY_ID"
+	awsCredsSecretAccessKey = "AWS_SECRET_ACCESS_KEY"
+	bucketName              = "BUCKET_NAME"
 )
 
 var log = logf.Log.WithName("controller_folderservice")
@@ -103,7 +116,12 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 
 	// Define a new Pod object
 	pod := newPodForCR(instance)
-	aws_s3_custom.Create()
+	var secretName = "iam-secret"
+	var namespace = "default"
+	var region = "us-east-1"
+	var accessKeyID, secretAccessKey, bucketName = getCredentialsAndBucketDetails(secretName, namespace, region)
+	fmt.Println("Access Key : %v secretAccessKey : %v", accessKeyID, secretAccessKey)
+	aws_s3_custom.Create(accessKeyID, secretAccessKey, region, bucketName)
 
 	// Set FolderService instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
@@ -152,4 +170,66 @@ func newPodForCR(cr *appv1alpha1.FolderService) *corev1.Pod {
 			},
 		},
 	}
+}
+
+func getCredentialsAndBucketDetails(secretName, namespace, region string) (string, string, string) {
+	//awsConfig := &aws.Config{Region: aws.String(region)}
+	s := scheme.Scheme
+	config, err := getClientConfig()
+	if err != nil {
+		fmt.Errorf("Unable to get client configuration", err)
+	}
+
+	var kubeClient = getKubeClientOrDie(config, s)
+	if secretName != "" {
+		secret := &corev1.Secret{}
+		err := kubeClient.Get(context.TODO(),
+			types.NamespacedName{
+				Name:      secretName,
+				Namespace: namespace,
+			},
+			secret)
+
+		fmt.Print(err)
+		// if err != nil {
+		// 	//return nil, err
+		// 	return nil, nil
+		// }
+		fmt.Println("AccessKeyID : %v", secret.Data[awsCredsSecretIDKey])
+		accessKeyID, ok := secret.Data[awsCredsSecretIDKey]
+		if !ok {
+			fmt.Errorf("AWS credentials secret %v did not contain key %v",
+				secretName, awsCredsSecretIDKey)
+		}
+
+		secretAccessKey, ok := secret.Data[awsCredsSecretAccessKey]
+		if !ok {
+			fmt.Errorf("AWS credentials secret %v did not contain key %v",
+				secretName, awsCredsSecretAccessKey)
+		}
+
+		bucketNameForFolder, ok := secret.Data[bucketName]
+		if !ok {
+			fmt.Errorf("Bucket Name %v",
+				secretName, bucketName)
+		}
+
+		return strings.Trim(string(accessKeyID), "\n"),
+			strings.Trim(string(secretAccessKey), "\n"),
+			strings.Trim(string(bucketNameForFolder), "\n")
+
+	}
+	return "", "", ""
+}
+
+func getKubeClientOrDie(config *rest.Config, s *runtime.Scheme) client.Client {
+	c, err := client.New(config, client.Options{Scheme: s})
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func getClientConfig() (*rest.Config, error) {
+	return clientcmd.BuildConfigFromFlags("", path.Join(os.Getenv("HOME"), ".kube/config"))
 }

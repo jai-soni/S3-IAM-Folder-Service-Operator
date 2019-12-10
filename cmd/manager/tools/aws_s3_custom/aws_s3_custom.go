@@ -16,11 +16,16 @@ func exitErrorf(msg string, args ...interface{}) {
 }
 
 // Create user Bucket
-func Create() {
-
+func Create(accessKeyID, secretAccessKey, region, bucketName string) {
+	fmt.Println(">>>>>>>>>>>>>>>>")
+	fmt.Println("Key %v", accessKeyID)
+	fmt.Println("Secret %v", secretAccessKey)
+	fmt.Println("BucketName %v", bucketName)
+	fmt.Println("Region %v", region)
+	fmt.Println(">>>>>>>>>>>>>>>>")
 	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String("us-east-1"),
-		Credentials: credentials.NewStaticCredentials("", "", ""),
+		Region:      aws.String(region),
+		Credentials: credentials.NewStaticCredentials(accessKeyID, secretAccessKey, ""),
 	})
 
 	// Create S3 service client
@@ -38,13 +43,13 @@ func Create() {
 			aws.StringValue(b.Name), aws.TimeValue(b.CreationDate))
 	}
 
-	var bucket = "s3folderoperator-upload-bucket"
-	var filename = "jai/"
+	// var bucket = "test-s3-folder-upload"
+	var filename = "riddhi/"
 	_, err = s3.New(sess).PutObject(&s3.PutObjectInput{
-		Bucket: aws.String(bucket),
+		Bucket: aws.String(bucketName),
 		Key:    aws.String(filename),
 	})
 
-	fmt.Printf("Successfully uploaded %q to %q\n", filename, bucket)
+	fmt.Printf("Successfully uploaded %q to %q\n", filename, bucketName)
 
 }
