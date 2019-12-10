@@ -32,11 +32,17 @@ func exitErrorf(msg string, args ...interface{}) {
 }
 
 // CreateFolderIfNotExist Does somthing
-func CreateFolderIfNotExist(filename, bucket, region string) (success bool) {
+func CreateFolderIfNotExist(accessKeyID, secretAccessKey, filename, bucketName, region string) (success bool) {
+	fmt.Println(">>>>>>>>>>>>>>>>")
+	fmt.Println("Key %v", accessKeyID)
+	fmt.Println("Secret %v", secretAccessKey)
+	fmt.Println("BucketName %v", bucketName)
+	fmt.Println("Region %v", region)
+	fmt.Println(">>>>>>>>>>>>>>>>")
 	success = false
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(region),
-		Credentials: credentials.NewStaticCredentials("", "", ""),
+		Credentials: credentials.NewStaticCredentials(accessKeyID, secretAccessKey, ""),
 	})
 
 	// Create S3 service client
@@ -44,7 +50,7 @@ func CreateFolderIfNotExist(filename, bucket, region string) (success bool) {
 
 	result, err := svc.ListBuckets(nil)
 	if err != nil {
-		exitErrorf("Unable to list buckets, %v", err)
+		exitErrorf("Unable to list buckets %v", err)
 	}
 
 	fmt.Println("Buckets:")
@@ -55,13 +61,13 @@ func CreateFolderIfNotExist(filename, bucket, region string) (success bool) {
 	}
 
 	_, err = svc.GetObject(&s3.GetObjectInput{
-		Bucket: aws.String(bucket),
+		Bucket: aws.String(bucketName),
 		Key:    aws.String(filename),
 	})
 
 	if awserr, ok := err.(awserr.Error); ok && awserr.Code() == s3.ErrCodeNoSuchKey {
 		result, err := svc.PutObject(&s3.PutObjectInput{
-			Bucket: aws.String(bucket),
+			Bucket: aws.String(bucketName),
 			Key:    aws.String(filename),
 		})
 
@@ -80,18 +86,18 @@ func CreateFolderIfNotExist(filename, bucket, region string) (success bool) {
 }
 
 // CreateUserIfNotExist Does somthing
-func CreateUserIfNotExist(userName, region string) (success bool) {
+func CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region string) (success bool) {
 	success = false
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(region),
-		Credentials: credentials.NewStaticCredentials("", "", ""),
+		Credentials: credentials.NewStaticCredentials(accessKeyID, secretAccessKey, ""),
 	})
 
 	// Create a IAM service client.
 	svc := iam.New(sess)
 
 	_, err = svc.GetUser(&iam.GetUserInput{
-		UserName: &os.Args[1],
+		UserName: &userName,
 	})
 
 	if awserr, ok := err.(awserr.Error); ok && awserr.Code() == iam.ErrCodeNoSuchEntityException {
@@ -114,13 +120,13 @@ func CreateUserIfNotExist(userName, region string) (success bool) {
 }
 
 // CreatePolicyIfNotExist does something
-func CreatePolicyIfNotExist(filename, bucket, region, userName string) (success bool) {
+func CreatePolicyIfNotExist(accessKeyID, secretAccessKey, filename, bucket, region, userName string) (success bool) {
 	success = false
-	var policyName = filename[:len(filename)-2] + "_s3_policy"
-	var arnString = "arn:aws:s3:::" + bucket + "/" + filename[:len(filename)-2]
+	var policyName = filename[:len(filename)-1] + "_s3_policy"
+	var arnString = "arn:aws:s3:::" + bucket + "/" + filename[:len(filename)-1]
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(region),
-		Credentials: credentials.NewStaticCredentials("", "", ""),
+		Credentials: credentials.NewStaticCredentials(accessKeyID, secretAccessKey, ""),
 	})
 
 	// Create a IAM service client.
