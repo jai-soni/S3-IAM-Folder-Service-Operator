@@ -32,8 +32,8 @@ func exitErrorf(msg string, args ...interface{}) {
 }
 
 // CreateFolderIfNotExist Does somthing
-func CreateFolderIfNotExist(filename, bucket, region string) {
-
+func CreateFolderIfNotExist(filename, bucket, region string) (success bool) {
+	success = false
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(region),
 		Credentials: credentials.NewStaticCredentials("", "", ""),
@@ -71,14 +71,17 @@ func CreateFolderIfNotExist(filename, bucket, region string) {
 		}
 
 		fmt.Println("Success", result)
+		success = true
+		return
 	} else {
 		fmt.Println("GetFolder Error", err)
+		return
 	}
 }
 
 // CreateUserIfNotExist Does somthing
-func CreateUserIfNotExist(userName, region string) {
-
+func CreateUserIfNotExist(userName, region string) (success bool) {
+	success = false
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(region),
 		Credentials: credentials.NewStaticCredentials("", "", ""),
@@ -102,14 +105,17 @@ func CreateUserIfNotExist(userName, region string) {
 		}
 
 		fmt.Println("Success", result)
+		success = true
+		return
 	} else {
 		fmt.Println("GetUser Error", err)
+		return
 	}
 }
 
 // CreatePolicyIfNotExist does something
-func CreatePolicyIfNotExist(filename, bucket, region, userName string) {
-
+func CreatePolicyIfNotExist(filename, bucket, region, userName string) (success bool) {
+	success = false
 	var policyName = filename[:len(filename)-2] + "_s3_policy"
 	var arnString = "arn:aws:s3:::" + bucket + "/" + filename[:len(filename)-2]
 	sess, err := session.NewSession(&aws.Config{
@@ -161,5 +167,6 @@ func CreatePolicyIfNotExist(filename, bucket, region, userName string) {
 		return
 	}
 	fmt.Println("Policy attached to user successfully")
-
+	success = true
+	return
 }
