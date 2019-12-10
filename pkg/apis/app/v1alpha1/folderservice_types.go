@@ -14,6 +14,13 @@ type FolderServiceSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	// Sleep string `json:"sleep"`
+	UserName   string     `json:"username"`
+	UserSecret UserSecret `json:"userSecret"`
+}
+
+// UserSecret defines the type of Usersecret struct
+type UserSecret struct {
+	Name string `json:"name"`
 }
 
 // FolderServiceStatus defines the observed state of FolderService

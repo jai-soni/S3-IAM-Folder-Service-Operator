@@ -2,6 +2,8 @@ apiVersion: app.s3folder.com/v1alpha1
 kind: FolderService
 metadata:
   name: example-folderservice
+  namespace: somenamespace
 spec:
-  # Add fields here
-  # sleep: "300"
+  username: username
+  userSecret:
+    name: username-secret
