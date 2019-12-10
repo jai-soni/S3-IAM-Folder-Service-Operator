@@ -103,7 +103,9 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 
 	// Define a new Pod object
 	pod := newPodForCR(instance)
-	aws_s3_custom.Create()
+	aws_s3_custom.CreateUserIfNotExist("", "")
+	aws_s3_custom.CreateFolderIfNotExist("", "", "")
+	aws_s3_custom.CreatePolicyIfNotExist("", "", "", "")
 
 	// Set FolderService instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
