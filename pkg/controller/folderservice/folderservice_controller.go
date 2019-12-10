@@ -119,9 +119,11 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	var secretName = "iam-secret"
 	var namespace = "default"
 	var region = "us-east-1"
+	var userName = "jai1"
 	var accessKeyID, secretAccessKey, bucketName = getCredentialsAndBucketDetails(secretName, namespace, region)
-	fmt.Println("Access Key : %v secretAccessKey : %v", accessKeyID, secretAccessKey)
-	aws_s3_custom.Create(accessKeyID, secretAccessKey, region, bucketName)
+	aws_s3_custom.CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region)
+	aws_s3_custom.CreateFolderIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region)
+	aws_s3_custom.CreatePolicyIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region, userName)
 
 	// Set FolderService instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
@@ -195,7 +197,6 @@ func getCredentialsAndBucketDetails(secretName, namespace, region string) (strin
 		// 	//return nil, err
 		// 	return nil, nil
 		// }
-		fmt.Println("AccessKeyID : %v", secret.Data[awsCredsSecretIDKey])
 		accessKeyID, ok := secret.Data[awsCredsSecretIDKey]
 		if !ok {
 			fmt.Errorf("AWS credentials secret %v did not contain key %v",
