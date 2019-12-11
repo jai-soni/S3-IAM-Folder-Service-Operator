@@ -31,6 +31,33 @@ spec:
         spec:
           description: FolderServiceSpec defines the desired state of FolderService
           properties:
+            platformSecrets:
+              description: PlatformSecrets defines the secrets to be used by various
+                clouds.
+              properties:
+                aws:
+                  description: AWSPlatformSecrets contains secrets for clusters on
+                    the AWS platform.
+                  properties:
+                    credentials:
+                      description: Credentials refers to a secret that contains the
+                        AWS account access credentials.
+                      properties:
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            TODO: Add other useful fields. apiVersion, kind, uid?'
+                          type: string
+                      type: object
+                  required:
+                  - credentials
+                  type: object
+              required:
+              - aws
+              type: object
+            userName:
+              description: CertificateSecret is the reference to the secret where
+                certificates are stored.
+              type: string
             userSecret:
               description: UserSecret defines the type of Usersecret struct
               properties:
@@ -39,19 +66,23 @@ spec:
               required:
               - name
               type: object
-            username:
-              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                Important: Run "operator-sdk generate k8s" to regenerate code after
-                modifying this file Add custom validation using kubebuilder tags:
-                https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-                Sleep string `json:"sleep"`'
-              type: string
           required:
+          - platformSecrets
+          - userName
           - userSecret
-          - username
           type: object
         status:
           description: FolderServiceStatus defines the observed state of FolderService
+          properties:
+            setupComplete:
+              description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                of cluster Important: Run "operator-sdk generate k8s" to regenerate
+                code after modifying this file Add custom validation using kubebuilder
+                tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+                Sleep string `json:"sleep"`'
+              type: boolean
+          required:
+          - setupComplete
           type: object
       type: object
   version: v1alpha1
