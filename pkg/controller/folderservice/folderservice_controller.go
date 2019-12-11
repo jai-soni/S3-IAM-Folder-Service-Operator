@@ -119,7 +119,9 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	var secretName = "iam-secret"
 	var namespace = "default"
 	var region = "us-east-1"
-	var userName = "jai3"
+	var userName = instance.Spec.UserName
+	fmt.Println(userName)
+
 	var accessKeyID, secretAccessKey, bucketName = getCredentialsAndBucketDetails(secretName, namespace, region)
 	aws_s3_custom.CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region)
 	aws_s3_custom.CreateFolderIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region)
