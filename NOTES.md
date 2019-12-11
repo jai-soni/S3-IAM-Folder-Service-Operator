@@ -25,3 +25,28 @@ operator-sdk generate k8s && operator-sdk generate openapi
 ```
 
 
+# Commands to create secrets
+- Create a folder with name "secrets" at the root level of project
+
+- Add the mysecrets.yaml file inside the folder
+
+- Update the following values with their base64  representations
+
+```bash
+data:
+    AWS_ACCESS_KEY_ID: ""
+    AWS_SECRET_ACCESS_KEY: ""
+    BUCKET_NAME: ""
+```
+
+- Run the following command to create the secret on the k8s cluster
+```bash
+kubectl apply -f secrets/mysecrets.yaml
+```
+
+- In order to delete the secret, run:
+```bash
+kubectl delete secret iam-secret
+```
+
+
