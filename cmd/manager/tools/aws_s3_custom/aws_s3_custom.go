@@ -110,8 +110,18 @@ func CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region string)
 			return
 		}
 
-		fmt.Println("Success", result)
+		accessKeyResult, accessKeyErr := svc.CreateAccessKey(&iam.CreateAccessKeyInput{
+			UserName: aws.String(userName),
+		})
+
+		if accessKeyErr != nil {
+			fmt.Println("Error", accessKeyErr)
+			return
+		}
+
+		fmt.Println("Username created :", *result.User.UserName)
 		success = true
+		fmt.Println("Secrets for User", *accessKeyResult.AccessKey)
 		return
 	} else {
 		fmt.Println("GetUser Error", err)
