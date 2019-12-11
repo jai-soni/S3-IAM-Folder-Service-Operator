@@ -4,7 +4,7 @@ metadata:
   name: example-folderservice
   namespace: default
 spec:
-  username: username
+  userName: username
   userSecret:
     name: username-secret
   platformSecrets:

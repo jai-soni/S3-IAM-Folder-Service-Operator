@@ -68,9 +68,9 @@ func schema_pkg_apis_app_v1alpha1_FolderServiceSpec(ref common.ReferenceCallback
 				Description: "FolderServiceSpec defines the desired state of FolderService",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"username": {
+					"userName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html Sleep string `json:\"sleep\"`",
+							Description: "CertificateSecret is the reference to the secret where certificates are stored.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -80,12 +80,17 @@ func schema_pkg_apis_app_v1alpha1_FolderServiceSpec(ref common.ReferenceCallback
 							Ref: ref("./pkg/apis/app/v1alpha1.UserSecret"),
 						},
 					},
+					"platformSecrets": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/app/v1alpha1.PlatformSecrets"),
+						},
+					},
 				},
-				Required: []string{"username", "userSecret"},
+				Required: []string{"userName", "userSecret", "platformSecrets"},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/app/v1alpha1.UserSecret"},
+			"./pkg/apis/app/v1alpha1.PlatformSecrets", "./pkg/apis/app/v1alpha1.UserSecret"},
 	}
 }
 
@@ -95,6 +100,16 @@ func schema_pkg_apis_app_v1alpha1_FolderServiceStatus(ref common.ReferenceCallba
 			SchemaProps: spec.SchemaProps{
 				Description: "FolderServiceStatus defines the observed state of FolderService",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"setupComplete": {
+						SchemaProps: spec.SchemaProps{
+							Description: "INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html Sleep string `json:\"sleep\"`",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"setupComplete"},
 			},
 		},
 	}
