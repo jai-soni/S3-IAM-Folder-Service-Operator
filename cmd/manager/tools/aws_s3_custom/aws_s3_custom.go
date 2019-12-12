@@ -86,8 +86,11 @@ func CreateFolderIfNotExist(accessKeyID, secretAccessKey, filename, bucketName, 
 }
 
 // CreateUserIfNotExist Does somthing
-func CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region string) (success bool) {
+func CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region string) (awsAccessKey string, awsSecretAccessKey string, success bool) {
 	success = false
+	awsAccessKey = ""
+	awsSecretAccessKey = ""
+
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(region),
 		Credentials: credentials.NewStaticCredentials(accessKeyID, secretAccessKey, ""),
@@ -121,7 +124,11 @@ func CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region string)
 
 		fmt.Println("Username created :", *result.User.UserName)
 		success = true
-		fmt.Println("Secrets for User", *accessKeyResult.AccessKey)
+		awsAccessKey = *accessKeyResult.AccessKey.AccessKeyId
+		awsSecretAccessKey = *accessKeyResult.AccessKey.SecretAccessKey
+		// fmt.Println("Secrets for User", *accessKeyResult.AccessKey)
+		fmt.Println("awsAccessKey :", awsAccessKey)
+		fmt.Println("awsSecretAccessKey :", awsSecretAccessKey)
 		return
 	} else {
 		fmt.Println("GetUser Error", err)
