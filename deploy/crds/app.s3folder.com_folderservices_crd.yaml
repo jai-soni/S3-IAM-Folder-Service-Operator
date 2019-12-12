@@ -3,6 +3,10 @@ kind: CustomResourceDefinition
 metadata:
   name: folderservices.app.s3folder.com
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.setupComplete
+    name: SetupComplete
+    type: boolean
   group: app.s3folder.com
   names:
     kind: FolderService
@@ -29,7 +33,6 @@ spec:
         metadata:
           type: object
         spec:
-          description: FolderServiceSpec defines the desired state of FolderService
           properties:
             platformSecrets:
               description: PlatformSecrets defines the secrets to be used by various

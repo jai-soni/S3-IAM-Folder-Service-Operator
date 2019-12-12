@@ -11,4 +11,7 @@ spec:
     aws:
       credentials:
         name: iam-secret
-
+  categories:
+    - all
+status:
+  setupComplete: false
