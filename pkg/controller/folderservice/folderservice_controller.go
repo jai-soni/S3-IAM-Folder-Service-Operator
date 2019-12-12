@@ -128,7 +128,7 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	aws_s3_custom.CreatePolicyIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region, userName)
 
 	status := appv1alpha1.FolderServiceStatus{
-		SetupComplete: false,
+		SetupComplete: true,
 	}
 
 	if !reflect.DeepEqual(instance.Status, status) {
