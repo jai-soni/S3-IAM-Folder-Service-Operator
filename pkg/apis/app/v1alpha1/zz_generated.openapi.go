@@ -12,7 +12,6 @@ import (
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
 		"./pkg/apis/app/v1alpha1.FolderService":       schema_pkg_apis_app_v1alpha1_FolderService(ref),
-		"./pkg/apis/app/v1alpha1.FolderServiceSpec":   schema_pkg_apis_app_v1alpha1_FolderServiceSpec(ref),
 		"./pkg/apis/app/v1alpha1.FolderServiceStatus": schema_pkg_apis_app_v1alpha1_FolderServiceStatus(ref),
 	}
 }
@@ -58,39 +57,6 @@ func schema_pkg_apis_app_v1alpha1_FolderService(ref common.ReferenceCallback) co
 		},
 		Dependencies: []string{
 			"./pkg/apis/app/v1alpha1.FolderServiceSpec", "./pkg/apis/app/v1alpha1.FolderServiceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_pkg_apis_app_v1alpha1_FolderServiceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "FolderServiceSpec defines the desired state of FolderService",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"userName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "CertificateSecret is the reference to the secret where certificates are stored.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"userSecret": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/app/v1alpha1.UserSecret"),
-						},
-					},
-					"platformSecrets": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("./pkg/apis/app/v1alpha1.PlatformSecrets"),
-						},
-					},
-				},
-				Required: []string{"userName", "userSecret", "platformSecrets"},
-			},
-		},
-		Dependencies: []string{
-			"./pkg/apis/app/v1alpha1.PlatformSecrets", "./pkg/apis/app/v1alpha1.UserSecret"},
 	}
 }
 

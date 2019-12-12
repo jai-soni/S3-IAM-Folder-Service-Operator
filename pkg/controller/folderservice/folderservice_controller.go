@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/sreeragsreenath/team2-kubeop/cmd/manager/tools/aws_s3_custom"
 	appv1alpha1 "github.com/sreeragsreenath/team2-kubeop/pkg/apis/app/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -19,7 +20,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -67,13 +67,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner FolderService
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &appv1alpha1.FolderService{},
-	})
-	if err != nil {
-		return err
-	}
+	// err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	// 	IsController: true,
+	// 	OwnerType:    &appv1alpha1.FolderService{},
+	// })
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -102,6 +102,8 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 
 	// Fetch the FolderService instance
 	instance := &appv1alpha1.FolderService{}
+	fmt.Println("Before> " + strconv.FormatBool(instance.Status.SetupComplete))
+
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -114,8 +116,6 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
 	var secretName = "iam-secret"
 	var namespace = "default"
 	var region = "us-east-1"
@@ -127,53 +127,22 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	aws_s3_custom.CreateFolderIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region)
 	aws_s3_custom.CreatePolicyIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region, userName)
 
-	// Set FolderService instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
+	status := appv1alpha1.FolderServiceStatus{
+		SetupComplete: true,
 	}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+	if !reflect.DeepEqual(instance.Status, status) {
+		instance.Status = status
+		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
+			reqLogger.Error(err, "failed to update the podSet")
 			return reconcile.Result{}, err
 		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
 	}
+	//instance.Status.SetupComplete = true
+	fmt.Println("After> " + strconv.FormatBool(instance.Status.SetupComplete))
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
 	return reconcile.Result{}, nil
-}
-
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *appv1alpha1.FolderService) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
-	}
 }
 
 func getCredentialsAndBucketDetails(secretName, namespace, region string) (string, string, string) {
