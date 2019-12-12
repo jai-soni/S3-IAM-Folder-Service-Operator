@@ -10,6 +10,7 @@ import (
 
 // FolderServiceSpec defines the desired state of FolderService
 // +k8s:openapi-gen=true
+
 type FolderServiceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
@@ -43,6 +44,7 @@ type FolderServiceStatus struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=folderservices,scope=Namespaced
+// +kubebuilder:printcolumn:name="SetupComplete",type="boolean",JSONPath=`.status.setupComplete`
 type FolderService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
