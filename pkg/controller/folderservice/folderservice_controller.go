@@ -116,21 +116,40 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 
 	// Define a new Pod object
 	pod := newPodForCR(instance)
-	var secretName = "iam-secret"
+	// var secretName = "iam-secret"
+	var secretName = instance.Spec.PlatformSecrets.AWS.Credentials.Name
+	fmt.Println("SecretName: %v", secretName)
 	var namespace = "default"
 	var region = "us-east-1"
 	var userName = instance.Spec.UserName
+	var userSecret = instance.Spec.UserSecret.Name
 	fmt.Println(userName)
 
 	var accessKeyID, secretAccessKey, bucketName = getCredentialsAndBucketDetails(secretName, namespace, region)
-	aws_s3_custom.CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region)
+	var resultAwsAccessKey, resultAwsSecretAccessKey, resultStaus = aws_s3_custom.CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region)
 	aws_s3_custom.CreateFolderIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region)
 	aws_s3_custom.CreatePolicyIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region, userName)
 
+	fmt.Println(">>>>>>>>>>>>>>>>")
+	fmt.Println("awsAccessKey :", resultAwsAccessKey)
+	fmt.Println("awsSecretAccessKey :", resultAwsSecretAccessKey)
+	fmt.Println("Status :", resultStaus)
+	fmt.Println(">>>>>>>>>>>>>>>>")
 	// Set FolderService instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
+	desired := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      userSecret,
+			Namespace: "default",
+		},
+		StringData: map[string]string{
+			"username": resultAwsAccessKey,
+			"password": resultAwsSecretAccessKey,
+		},
+	}
+	r.client.Create(context.TODO(), desired)
 
 	// Check if this Pod already exists
 	found := &corev1.Pod{}
