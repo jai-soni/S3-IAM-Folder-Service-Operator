@@ -13,6 +13,7 @@ import (
 	appv1alpha1 "github.com/sreeragsreenath/team2-kubeop/pkg/apis/app/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -124,7 +125,7 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	fmt.Println(userName)
 
 	var accessKeyID, secretAccessKey, bucketName = getCredentialsAndBucketDetails(secretName, namespace, region)
-	var resultAwsAccessKey, resultAwsSecretAccessKey, resultStaus = aws_s3_custom.CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region)
+	var resultAwsAccessKey, resultAwsSecretAccessKey, _ = aws_s3_custom.CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region)
 	aws_s3_custom.CreateFolderIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region)
 	aws_s3_custom.CreatePolicyIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region, userName)
 

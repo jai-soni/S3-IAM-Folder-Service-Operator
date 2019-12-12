@@ -4,9 +4,9 @@ metadata:
   name: example-folderservice
   namespace: default
 spec:
-  userName: vivek1
+  userName: vivek3
   userSecret:
-    name: vivek1-secret-1
+    name: vivek3-secret
   platformSecrets:
     aws:
       credentials:
