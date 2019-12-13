@@ -131,7 +131,40 @@ func CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region string)
 		fmt.Println("awsSecretAccessKey :", awsSecretAccessKey)
 		return
 	} else {
-		fmt.Println("GetUser Error", err)
+		result, err := svc.ListAccessKeys(&iam.ListAccessKeysInput{
+			MaxItems: aws.Int64(5),
+			UserName: aws.String(userName),
+		})
+		if err != nil {
+			fmt.Println("Error", err)
+			return
+		}
+
+		fmt.Println("Success", result)
+
+		for _, b := range result.AccessKeyMetadata {
+			fmt.Printf("* %s access key deleted\n",
+				aws.StringValue(b.AccessKeyId))
+			svc.DeleteAccessKey(&iam.DeleteAccessKeyInput{
+				AccessKeyId: b.AccessKeyId,
+				UserName:    &userName,
+			})
+		}
+		accessKeyResult, accessKeyErr := svc.CreateAccessKey(&iam.CreateAccessKeyInput{
+			UserName: aws.String(userName),
+		})
+
+		if accessKeyErr != nil {
+			fmt.Println("Error", accessKeyErr)
+			return
+		}
+
+		success = true
+		awsAccessKey = *accessKeyResult.AccessKey.AccessKeyId
+		awsSecretAccessKey = *accessKeyResult.AccessKey.SecretAccessKey
+		// fmt.Println("Secrets for User", *accessKeyResult.AccessKey)
+		fmt.Println("awsAccessKey :", awsAccessKey)
+		fmt.Println("awsSecretAccessKey :", awsSecretAccessKey)
 		return
 	}
 }

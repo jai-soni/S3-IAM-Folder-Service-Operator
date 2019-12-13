@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -62,14 +63,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner FolderService
-	// err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-	// 	IsController: true,
-	// 	OwnerType:    &appv1alpha1.FolderService{},
-	// })
-	// if err != nil {
-	// 	return err
-	// }
+	// Watch for changes to secondary resource Secret and requeue the owner FolderService
+	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -106,6 +104,7 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -180,8 +179,9 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 			"password": resultAwsSecretAccessKey,
 		},
 	}
+	// setOwnerRef(desired)
 	r.client.Create(context.TODO(), desired)
-
+	fmt.Println(setOwnerRef(desired))
 	if !reflect.DeepEqual(instance.Status, status) {
 		instance.Status = status
 		err := r.client.Status().Update(context.TODO(), instance)
@@ -194,4 +194,19 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	fmt.Println("After> " + strconv.FormatBool(instance.Status.SetupComplete))
 
 	return reconcile.Result{}, nil
+}
+
+func setOwnerRef(secret *corev1.Secret) error {
+	ownerRef := generateOwnerRef(secret)
+	secret.SetOwnerReferences(ownerRef)
+	return nil
+}
+
+func generateOwnerRef(secret *corev1.Secret) []metav1.OwnerReference {
+	return []metav1.OwnerReference{
+		*metav1.NewControllerRef(secret, schema.GroupVersionKind{
+			Group:   appv1alpha1.SchemeGroupVersion.Group,
+			Version: appv1alpha1.SchemeGroupVersion.Version,
+		}),
+	}
 }
