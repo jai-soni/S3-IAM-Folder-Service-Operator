@@ -130,43 +130,58 @@ func CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region string)
 		fmt.Println("awsAccessKey :", awsAccessKey)
 		fmt.Println("awsSecretAccessKey :", awsSecretAccessKey)
 		return
-	} else {
-		result, err := svc.ListAccessKeys(&iam.ListAccessKeysInput{
-			MaxItems: aws.Int64(5),
-			UserName: aws.String(userName),
-		})
-		if err != nil {
-			fmt.Println("Error", err)
-			return
-		}
+	}
+	return
+}
 
-		fmt.Println("Success", result)
+// CreateKeyIfNotExist is used to create key if not exists
+func CreateKeyIfNotExist(accessKeyID, secretAccessKey, userName, region string) (awsAccessKey string, awsSecretAccessKey string, success bool) {
+	success = false
+	awsAccessKey = ""
+	awsSecretAccessKey = ""
 
-		for _, b := range result.AccessKeyMetadata {
-			fmt.Printf("* %s access key deleted\n",
-				aws.StringValue(b.AccessKeyId))
-			svc.DeleteAccessKey(&iam.DeleteAccessKeyInput{
-				AccessKeyId: b.AccessKeyId,
-				UserName:    &userName,
-			})
-		}
-		accessKeyResult, accessKeyErr := svc.CreateAccessKey(&iam.CreateAccessKeyInput{
-			UserName: aws.String(userName),
-		})
+	sess, err := session.NewSession(&aws.Config{
+		Region:      aws.String(region),
+		Credentials: credentials.NewStaticCredentials(accessKeyID, secretAccessKey, ""),
+	})
 
-		if accessKeyErr != nil {
-			fmt.Println("Error", accessKeyErr)
-			return
-		}
-
-		success = true
-		awsAccessKey = *accessKeyResult.AccessKey.AccessKeyId
-		awsSecretAccessKey = *accessKeyResult.AccessKey.SecretAccessKey
-		// fmt.Println("Secrets for User", *accessKeyResult.AccessKey)
-		fmt.Println("awsAccessKey :", awsAccessKey)
-		fmt.Println("awsSecretAccessKey :", awsSecretAccessKey)
+	// Create a IAM service client.
+	svc := iam.New(sess)
+	result, err := svc.ListAccessKeys(&iam.ListAccessKeysInput{
+		MaxItems: aws.Int64(5),
+		UserName: aws.String(userName),
+	})
+	if err != nil {
+		fmt.Println("Error", err)
 		return
 	}
+
+	fmt.Println("Success", result)
+
+	for _, b := range result.AccessKeyMetadata {
+		fmt.Printf("* %s access key deleted\n",
+			aws.StringValue(b.AccessKeyId))
+		svc.DeleteAccessKey(&iam.DeleteAccessKeyInput{
+			AccessKeyId: b.AccessKeyId,
+			UserName:    &userName,
+		})
+	}
+	accessKeyResult, accessKeyErr := svc.CreateAccessKey(&iam.CreateAccessKeyInput{
+		UserName: aws.String(userName),
+	})
+
+	if accessKeyErr != nil {
+		fmt.Println("Error", accessKeyErr)
+		return
+	}
+
+	success = true
+	awsAccessKey = *accessKeyResult.AccessKey.AccessKeyId
+	awsSecretAccessKey = *accessKeyResult.AccessKey.SecretAccessKey
+	// fmt.Println("Secrets for User", *accessKeyResult.AccessKey)
+	fmt.Println("awsAccessKey :", awsAccessKey)
+	fmt.Println("awsSecretAccessKey :", awsSecretAccessKey)
+	return
 }
 
 // CreatePolicyIfNotExist does something

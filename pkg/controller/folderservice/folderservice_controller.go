@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sreeragsreenath/team2-kubeop/cmd/manager/tools/aws_s3_custom"
 	appv1alpha1 "github.com/sreeragsreenath/team2-kubeop/pkg/apis/app/v1alpha1"
@@ -109,7 +110,8 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
 
-			return reconcile.Result{}, nil
+			// return reconcile.Result{}, nil
+			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
@@ -173,24 +175,27 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	status := appv1alpha1.FolderServiceStatus{
 		SetupComplete: true,
 	}
+	//
 	iamSecret := newIAMSecretCR(instance, userSecret, resultAwsAccessKey, resultAwsSecretAccessKey)
-	// setOwnerRef(desired)
 
 	if err := controllerutil.SetControllerReference(instance, iamSecret, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
-	// Check if this Pod already exists
+	// Check if this Secret already exists
 	found := &corev1.Secret{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: iamSecret.Name, Namespace: iamSecret.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", iamSecret.Namespace, "Pod.Name", iamSecret.Name)
+		var resultAwsAccessKey, resultAwsSecretAccessKey, _ = aws_s3_custom.CreateKeyIfNotExist(accessKeyID, secretAccessKey, userName, region)
+		iamSecret := newIAMSecretCR(instance, userSecret, resultAwsAccessKey, resultAwsSecretAccessKey)
+		reqLogger.Info("Creating a new Secret for IAM", "IAMSecret.Namespace", iamSecret.Namespace, "IAMSecret.Name", iamSecret.Name)
 		err = r.client.Create(context.TODO(), iamSecret)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
+		// IAM Secret created successfully - don't requeue
+		// return reconcile.Result{}, nil
+		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -206,7 +211,8 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	//instance.Status.SetupComplete = true
 	fmt.Println("After> " + strconv.FormatBool(instance.Status.SetupComplete))
 
-	return reconcile.Result{}, nil
+	// return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 }
 
 func setOwnerRef(secret *corev1.Secret) error {
