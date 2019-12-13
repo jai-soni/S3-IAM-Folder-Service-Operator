@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/sts"
 )
 
 // PolicyDocument is our definition of our policies to be uploaded to IAM.
@@ -184,6 +185,51 @@ func CreateKeyIfNotExist(accessKeyID, secretAccessKey, userName, region string) 
 	return
 }
 
+func getUserAccountNumber(accessKeyID, secretAccessKey, region string) (accountNumber string) {
+	accountNumber = ""
+	sess, err := session.NewSession(&aws.Config{
+		Region:      aws.String(region),
+		Credentials: credentials.NewStaticCredentials(accessKeyID, secretAccessKey, ""),
+	})
+	svc := sts.New(sess)
+	input := &sts.GetCallerIdentityInput{}
+
+	result, err := svc.GetCallerIdentity(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				fmt.Println(aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			fmt.Println(err.Error())
+		}
+		return
+	}
+	accountNumber = *result.Account
+	return
+}
+
+func attachPolicyToUser(accessKeyID, secretAccessKey, region, policyArn, userName string) {
+	sess, err := session.NewSession(&aws.Config{
+		Region:      aws.String(region),
+		Credentials: credentials.NewStaticCredentials(accessKeyID, secretAccessKey, ""),
+	})
+	svc := iam.New(sess)
+
+	_, err = svc.AttachUserPolicy(&iam.AttachUserPolicyInput{
+		PolicyArn: &policyArn,
+		UserName:  &userName,
+	})
+
+	if err != nil {
+		fmt.Println("Unable to attach role policy to user", err)
+		return
+	}
+}
+
 // CreatePolicyIfNotExist does something
 func CreatePolicyIfNotExist(accessKeyID, secretAccessKey, filename, bucket, region, userName string) (success bool) {
 	success = false
@@ -197,46 +243,52 @@ func CreatePolicyIfNotExist(accessKeyID, secretAccessKey, filename, bucket, regi
 	// Create a IAM service client.
 	svc := iam.New(sess)
 
-	// Builds our policy document for IAM.
-	policy := PolicyDocument{
-		Version: "2012-10-17",
-		Statement: []StatementEntry{
-			StatementEntry{
-				Effect: "Allow",
-				// Allows for DeleteItem, GetItem, PutItem, Scan, and UpdateItem
-				Action: []string{
-					"s3:*",
+	// Check if the policy exists
+	// userPolicyArn := "arn:aws:iam::aws:policy/" + policyName
+	userPolicyArn := "arn:aws:iam::" + getUserAccountNumber(accessKeyID, secretAccessKey, region) + ":policy/" + policyName
+	result2, err := svc.GetPolicy(&iam.GetPolicyInput{
+		PolicyArn: &userPolicyArn,
+	})
+
+	if awserr, ok := err.(awserr.Error); ok && awserr.Code() == iam.ErrCodeNoSuchEntityException {
+		// Builds our policy document for IAM.
+		policy := PolicyDocument{
+			Version: "2012-10-17",
+			Statement: []StatementEntry{
+				StatementEntry{
+					Effect: "Allow",
+					// Allows for DeleteItem, GetItem, PutItem, Scan, and UpdateItem
+					Action: []string{
+						"s3:*",
+					},
+					Resource: arnString,
 				},
-				Resource: arnString,
 			},
-		},
-	}
-
-	b, err := json.Marshal(&policy)
-	if err != nil {
-		fmt.Println("Error marshaling policy", err)
+		}
+		b, err := json.Marshal(&policy)
+		if err != nil {
+			fmt.Println("Error marshaling policy", err)
+			return
+		}
+		result, err := svc.CreatePolicy(&iam.CreatePolicyInput{
+			PolicyDocument: aws.String(string(b)),
+			PolicyName:     aws.String(policyName),
+		})
+		if err != nil {
+			fmt.Println("Error", err)
+			return
+		}
+		fmt.Println("New policy", result)
+		success = true
+		fmt.Println("Policy created and attached to user successfully")
+		attachPolicyToUser(accessKeyID, secretAccessKey, region, *result.Policy.Arn, userName)
 		return
 	}
-
-	result, err := svc.CreatePolicy(&iam.CreatePolicyInput{
-		PolicyDocument: aws.String(string(b)),
-		PolicyName:     aws.String(policyName),
-	})
-
-	if err != nil {
-		fmt.Println("Error", err)
-		return
-	}
-	fmt.Println("New policy", result)
-	_, err = svc.AttachUserPolicy(&iam.AttachUserPolicyInput{
-		PolicyArn: result.Policy.Arn,
-		UserName:  &userName,
-	})
-
 	if err != nil {
 		fmt.Println("Unable to attach role policy to user", err)
 		return
 	}
+	attachPolicyToUser(accessKeyID, secretAccessKey, region, *result2.Policy.Arn, userName)
 	fmt.Println("Policy attached to user successfully")
 	success = true
 	return
