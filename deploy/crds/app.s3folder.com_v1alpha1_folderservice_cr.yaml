@@ -2,7 +2,7 @@ apiVersion: app.s3folder.com/v1alpha1
 kind: FolderService
 metadata:
   name: example-folderservice
-  namespace: default
+  namespace: folder_namespace
 spec:
   userName: vivek3
   userSecret:
