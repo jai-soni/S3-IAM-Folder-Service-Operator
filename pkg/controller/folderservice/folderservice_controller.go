@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -102,7 +101,6 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 
 	// Fetch the FolderService instance
 	instance := &appv1alpha1.FolderService{}
-	fmt.Println("Before> " + strconv.FormatBool(instance.Status.SetupComplete))
 
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
@@ -127,8 +125,7 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	var secretAccessKey = ""
 	var bucketName = ""
 
-	fmt.Println(userName)
-
+	// Check if Secrect not empty
 	if secretName != "" {
 		secret := &corev1.Secret{}
 		err := r.client.Get(context.TODO(),
@@ -139,16 +136,15 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 			secret)
 
 		fmt.Print(err)
-		// if err != nil {
-		// 	//return nil, err
-		// 	return nil, nil
-		// }
+
+		// Get AWS Root Credentials to create/update/delete IAM User, Folder, Policy
 		accessKeyID1, ok := secret.Data[awsCredsSecretIDKey]
 		if !ok {
 			fmt.Errorf("AWS credentials secret %v did not contain key %v",
 				secretName, awsCredsSecretIDKey)
 		}
 
+		// Get AWS Root Secret Access Keys
 		secretAccessKey1, ok := secret.Data[awsCredsSecretAccessKey]
 		if !ok {
 			fmt.Errorf("AWS credentials secret %v did not contain key %v",
@@ -168,24 +164,31 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 		bucketName = strings.Trim(string(bucketNameForFolder1), "\n")
 	}
 
-	//var accessKeyID, secretAccessKey, bucketName = getCredentialsAndBucketDetails(secretName, namespace, region)
+	// Get Result AWS Access Key and Secret
 	var resultAwsAccessKey, resultAwsSecretAccessKey, _ = aws_s3_custom.CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region)
+
+	// Create Folder if not exist
 	aws_s3_custom.CreateFolderIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region)
+
+	// Create Policy and attach if not exist
 	aws_s3_custom.CreatePolicyIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region, userName)
 
 	status := appv1alpha1.FolderServiceStatus{
 		SetupComplete: true,
 	}
-	//
+
+	// Desired state stores the value of IAM secret credentials as username and password which is needed
 	desired := newIAMSecretCR(instance, userSecret, resultAwsAccessKey, resultAwsSecretAccessKey)
 
+	// We are setting controller reference on the desired state to intance
 	if err := controllerutil.SetControllerReference(instance, desired, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
-	// Check if this Secret already exists
+	// Current state is the secret which is present in the kuberbetes at the time instance
 	current := &corev1.Secret{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
 
+	// If User IAM credentials not found, create it
 	if err != nil && errors.IsNotFound(err) {
 		var resultAwsAccessKey, resultAwsSecretAccessKey, _ = aws_s3_custom.CreateKeyIfNotExist(accessKeyID, secretAccessKey, userName, region)
 		desired2 := newIAMSecretCR(instance, userSecret, resultAwsAccessKey, resultAwsSecretAccessKey)
@@ -202,7 +205,7 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
-	// if Secret exists, only update if versionId has changed
+	// if Secret exists, only update if username has changed
 	if string(current.Data["username"]) != desired.StringData["username"] {
 		reqLogger.Info("versionId changed, Updating the Secret", "desired.Namespace", desired.Namespace, "desired.Name", desired.Name)
 		err = r.client.Update(context.TODO(), desired)
@@ -223,8 +226,6 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, err
 		}
 	}
-	//instance.Status.SetupComplete = true
-	fmt.Println("After> " + strconv.FormatBool(instance.Status.SetupComplete))
 
 	// return reconcile.Result{}, nil
 	return reconcile.Result{RequeueAfter: time.Second * reconcileTime}, nil
