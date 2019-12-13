@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -64,7 +65,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Secret and requeue the owner FolderService
-	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &appv1alpha1.FolderService{},
+	})
 	if err != nil {
 		return err
 	}
@@ -169,19 +173,28 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	status := appv1alpha1.FolderServiceStatus{
 		SetupComplete: true,
 	}
-	desired := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      userSecret,
-			Namespace: "default",
-		},
-		StringData: map[string]string{
-			"username": resultAwsAccessKey,
-			"password": resultAwsSecretAccessKey,
-		},
-	}
+	iamSecret := newIAMSecretCR(instance, userSecret, resultAwsAccessKey, resultAwsSecretAccessKey)
 	// setOwnerRef(desired)
-	r.client.Create(context.TODO(), desired)
-	fmt.Println(setOwnerRef(desired))
+
+	if err := controllerutil.SetControllerReference(instance, iamSecret, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+	// Check if this Pod already exists
+	found := &corev1.Secret{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: iamSecret.Name, Namespace: iamSecret.Namespace}, found)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating a new Pod", "Pod.Namespace", iamSecret.Namespace, "Pod.Name", iamSecret.Name)
+		err = r.client.Create(context.TODO(), iamSecret)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		// Pod created successfully - don't requeue
+		return reconcile.Result{}, nil
+	} else if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	if !reflect.DeepEqual(instance.Status, status) {
 		instance.Status = status
 		err := r.client.Status().Update(context.TODO(), instance)
@@ -208,5 +221,23 @@ func generateOwnerRef(secret *corev1.Secret) []metav1.OwnerReference {
 			Group:   appv1alpha1.SchemeGroupVersion.Group,
 			Version: appv1alpha1.SchemeGroupVersion.Version,
 		}),
+	}
+}
+
+// newIAMSecretCR returns a busybox pod with the same name/namespace as the cr
+func newIAMSecretCR(cr *appv1alpha1.FolderService, userSecret, resultAwsAccessKey, resultAwsSecretAccessKey string) *corev1.Secret {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      userSecret,
+			Namespace: cr.Namespace,
+			Labels:    labels,
+		},
+		StringData: map[string]string{
+			"username": resultAwsAccessKey,
+			"password": resultAwsSecretAccessKey,
+		},
 	}
 }
