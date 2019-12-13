@@ -135,7 +135,9 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 			},
 			secret)
 
-		fmt.Print(err)
+		if err != nil {
+			fmt.Print(err)
+		}
 
 		// Get AWS Root Credentials to create/update/delete IAM User, Folder, Policy
 		accessKeyID1, ok := secret.Data[awsCredsSecretIDKey]
@@ -156,8 +158,6 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 			fmt.Errorf("Bucket Name error %v",
 				secretName, bucketNameFromSecret)
 		}
-
-		fmt.Println("Bucket Name : %v", bucketNameForFolder1)
 
 		accessKeyID = strings.Trim(string(accessKeyID1), "\n")
 		secretAccessKey = strings.Trim(string(secretAccessKey1), "\n")

@@ -32,14 +32,8 @@ func exitErrorf(msg string, args ...interface{}) {
 	os.Exit(1)
 }
 
-// CreateFolderIfNotExist Does somthing
+// This function creates a folder with the sprovided filename in the given S3 bucketname
 func CreateFolderIfNotExist(accessKeyID, secretAccessKey, filename, bucketName, region string) (success bool) {
-	fmt.Println(">>>>>>>>>>>>>>>>")
-	fmt.Println("Key %v", accessKeyID)
-	fmt.Println("Secret %v", secretAccessKey)
-	fmt.Println("BucketName %v", bucketName)
-	fmt.Println("Region %v", region)
-	fmt.Println(">>>>>>>>>>>>>>>>")
 	success = false
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(region),
@@ -49,25 +43,13 @@ func CreateFolderIfNotExist(accessKeyID, secretAccessKey, filename, bucketName, 
 	// Create S3 service client
 	svc := s3.New(sess)
 
-	result, err := svc.ListBuckets(nil)
-	if err != nil {
-		exitErrorf("Unable to list buckets %v", err)
-	}
-
-	fmt.Println("Buckets:")
-
-	for _, b := range result.Buckets {
-		fmt.Printf("* %s created on %s\n",
-			aws.StringValue(b.Name), aws.TimeValue(b.CreationDate))
-	}
-
 	_, err = svc.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(filename),
 	})
 
 	if awserr, ok := err.(awserr.Error); ok && awserr.Code() == s3.ErrCodeNoSuchKey {
-		result, err := svc.PutObject(&s3.PutObjectInput{
+		_, err := svc.PutObject(&s3.PutObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(filename),
 		})
@@ -77,16 +59,17 @@ func CreateFolderIfNotExist(accessKeyID, secretAccessKey, filename, bucketName, 
 			return
 		}
 
-		fmt.Println("Success", result)
 		success = true
 		return
-	} else {
+	}
+	if err != nil {
 		fmt.Println("GetFolder Error", err)
 		return
 	}
+	return
 }
 
-// CreateUserIfNotExist Does somthing
+// Creates a User if not already present with the provided username, returns user credentials
 func CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region string) (awsAccessKey string, awsSecretAccessKey string, success bool) {
 	success = false
 	awsAccessKey = ""
@@ -105,7 +88,7 @@ func CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region string)
 	})
 
 	if awserr, ok := err.(awserr.Error); ok && awserr.Code() == iam.ErrCodeNoSuchEntityException {
-		result, err := svc.CreateUser(&iam.CreateUserInput{
+		_, err := svc.CreateUser(&iam.CreateUserInput{
 			UserName: &userName,
 		})
 
@@ -123,13 +106,9 @@ func CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region string)
 			return
 		}
 
-		fmt.Println("Username created :", *result.User.UserName)
 		success = true
 		awsAccessKey = *accessKeyResult.AccessKey.AccessKeyId
 		awsSecretAccessKey = *accessKeyResult.AccessKey.SecretAccessKey
-		// fmt.Println("Secrets for User", *accessKeyResult.AccessKey)
-		fmt.Println("awsAccessKey :", awsAccessKey)
-		fmt.Println("awsSecretAccessKey :", awsSecretAccessKey)
 		return
 	} else {
 		if err != nil {
@@ -151,7 +130,7 @@ func CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region string)
 	return
 }
 
-// CreateKeyIfNotExist is used to create key if not exists
+// CreateKeyIfNotExist is used to create key for the username if key not exists, returns new keys
 func CreateKeyIfNotExist(accessKeyID, secretAccessKey, userName, region string) (awsAccessKey string, awsSecretAccessKey string, success bool) {
 	success = false
 	awsAccessKey = ""
@@ -172,12 +151,9 @@ func CreateKeyIfNotExist(accessKeyID, secretAccessKey, userName, region string) 
 		fmt.Println("Error", err)
 		return
 	}
-
-	fmt.Println("Success", result)
-
 	for _, b := range result.AccessKeyMetadata {
-		fmt.Printf("* %s access key deleted\n",
-			aws.StringValue(b.AccessKeyId))
+		// fmt.Printf("* %s access key deleted\n",
+		// 	aws.StringValue(b.AccessKeyId))
 		svc.DeleteAccessKey(&iam.DeleteAccessKeyInput{
 			AccessKeyId: b.AccessKeyId,
 			UserName:    &userName,
@@ -195,12 +171,10 @@ func CreateKeyIfNotExist(accessKeyID, secretAccessKey, userName, region string) 
 	success = true
 	awsAccessKey = *accessKeyResult.AccessKey.AccessKeyId
 	awsSecretAccessKey = *accessKeyResult.AccessKey.SecretAccessKey
-	// fmt.Println("Secrets for User", *accessKeyResult.AccessKey)
-	fmt.Println("awsAccessKey :", awsAccessKey)
-	fmt.Println("awsSecretAccessKey :", awsSecretAccessKey)
 	return
 }
 
+// Returns AWS Account Number for the provided user credentials
 func getUserAccountNumber(accessKeyID, secretAccessKey, region string) (accountNumber string) {
 	accountNumber = ""
 	sess, err := session.NewSession(&aws.Config{
@@ -228,6 +202,7 @@ func getUserAccountNumber(accessKeyID, secretAccessKey, region string) (accountN
 	return
 }
 
+// Attaches provided policy to the provided username
 func attachPolicyToUser(accessKeyID, secretAccessKey, region, policyArn, userName string) {
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(region),
@@ -246,7 +221,7 @@ func attachPolicyToUser(accessKeyID, secretAccessKey, region, policyArn, userNam
 	}
 }
 
-// CreatePolicyIfNotExist does something
+// Create a IAM Policy if not exist and attaches the policy to the user, returns status
 func CreatePolicyIfNotExist(accessKeyID, secretAccessKey, filename, bucket, region, userName string) (success bool) {
 	success = false
 	var policyName = filename[:len(filename)-1] + "_s3_policy"
@@ -294,9 +269,8 @@ func CreatePolicyIfNotExist(accessKeyID, secretAccessKey, filename, bucket, regi
 			fmt.Println("Error", err)
 			return
 		}
-		fmt.Println("New policy", result)
 		success = true
-		fmt.Println("Policy created and attached to user successfully")
+		// fmt.Println("Policy created and attached to user successfully")
 		attachPolicyToUser(accessKeyID, secretAccessKey, region, *result.Policy.Arn, userName)
 		return
 	}
@@ -305,7 +279,7 @@ func CreatePolicyIfNotExist(accessKeyID, secretAccessKey, filename, bucket, regi
 		return
 	}
 	attachPolicyToUser(accessKeyID, secretAccessKey, region, *result2.Policy.Arn, userName)
-	fmt.Println("Policy attached to user successfully")
+	// fmt.Println("Policy attached to user successfully")
 	success = true
 	return
 }
