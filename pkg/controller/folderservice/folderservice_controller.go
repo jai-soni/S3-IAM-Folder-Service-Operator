@@ -3,8 +3,6 @@ package folderservice
 import (
 	"context"
 	"fmt"
-	"os"
-	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -16,9 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -31,7 +26,7 @@ import (
 const (
 	awsCredsSecretIDKey     = "AWS_ACCESS_KEY_ID"
 	awsCredsSecretAccessKey = "AWS_SECRET_ACCESS_KEY"
-	bucketName              = "BUCKET_NAME"
+	bucketNameFromSecret    = "BUCKET_NAME"
 )
 
 var log = logf.Log.WithName("controller_folderservice")
@@ -122,9 +117,52 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	var region = "us-east-1"
 	var userName = instance.Spec.UserName
 	var userSecret = instance.Spec.UserSecret.Name
+	var accessKeyID = ""
+	var secretAccessKey = ""
+	var bucketName = ""
+
 	fmt.Println(userName)
 
-	var accessKeyID, secretAccessKey, bucketName = getCredentialsAndBucketDetails(secretName, namespace, region)
+	if secretName != "" {
+		secret := &corev1.Secret{}
+		err := r.client.Get(context.TODO(),
+			types.NamespacedName{
+				Name:      secretName,
+				Namespace: namespace,
+			},
+			secret)
+
+		fmt.Print(err)
+		// if err != nil {
+		// 	//return nil, err
+		// 	return nil, nil
+		// }
+		accessKeyID1, ok := secret.Data[awsCredsSecretIDKey]
+		if !ok {
+			fmt.Errorf("AWS credentials secret %v did not contain key %v",
+				secretName, awsCredsSecretIDKey)
+		}
+
+		secretAccessKey1, ok := secret.Data[awsCredsSecretAccessKey]
+		if !ok {
+			fmt.Errorf("AWS credentials secret %v did not contain key %v",
+				secretName, awsCredsSecretAccessKey)
+		}
+
+		bucketNameForFolder1, ok := secret.Data[bucketNameFromSecret]
+		if !ok {
+			fmt.Errorf("Bucket Name error %v",
+				secretName, bucketNameFromSecret)
+		}
+
+		fmt.Println("Bucket Name : %v", bucketNameForFolder1)
+
+		accessKeyID = strings.Trim(string(accessKeyID1), "\n")
+		secretAccessKey = strings.Trim(string(secretAccessKey1), "\n")
+		bucketName = strings.Trim(string(bucketNameForFolder1), "\n")
+	}
+
+	//var accessKeyID, secretAccessKey, bucketName = getCredentialsAndBucketDetails(secretName, namespace, region)
 	var resultAwsAccessKey, resultAwsSecretAccessKey, _ = aws_s3_custom.CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region)
 	aws_s3_custom.CreateFolderIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region)
 	aws_s3_custom.CreatePolicyIfNotExist(accessKeyID, secretAccessKey, userName+"/", bucketName, region, userName)
@@ -156,65 +194,4 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	fmt.Println("After> " + strconv.FormatBool(instance.Status.SetupComplete))
 
 	return reconcile.Result{}, nil
-}
-
-func getCredentialsAndBucketDetails(secretName, namespace, region string) (string, string, string) {
-	//awsConfig := &aws.Config{Region: aws.String(region)}
-	s := scheme.Scheme
-	config, err := getClientConfig()
-	if err != nil {
-		fmt.Errorf("Unable to get client configuration", err)
-	}
-
-	var kubeClient = getKubeClientOrDie(config, s)
-	if secretName != "" {
-		secret := &corev1.Secret{}
-		err := kubeClient.Get(context.TODO(),
-			types.NamespacedName{
-				Name:      secretName,
-				Namespace: namespace,
-			},
-			secret)
-
-		fmt.Print(err)
-		// if err != nil {
-		// 	//return nil, err
-		// 	return nil, nil
-		// }
-		accessKeyID, ok := secret.Data[awsCredsSecretIDKey]
-		if !ok {
-			fmt.Errorf("AWS credentials secret %v did not contain key %v",
-				secretName, awsCredsSecretIDKey)
-		}
-
-		secretAccessKey, ok := secret.Data[awsCredsSecretAccessKey]
-		if !ok {
-			fmt.Errorf("AWS credentials secret %v did not contain key %v",
-				secretName, awsCredsSecretAccessKey)
-		}
-
-		bucketNameForFolder, ok := secret.Data[bucketName]
-		if !ok {
-			fmt.Errorf("Bucket Name %v",
-				secretName, bucketName)
-		}
-
-		return strings.Trim(string(accessKeyID), "\n"),
-			strings.Trim(string(secretAccessKey), "\n"),
-			strings.Trim(string(bucketNameForFolder), "\n")
-
-	}
-	return "", "", ""
-}
-
-func getKubeClientOrDie(config *rest.Config, s *runtime.Scheme) client.Client {
-	c, err := client.New(config, client.Options{Scheme: s})
-	if err != nil {
-		panic(err)
-	}
-	return c
-}
-
-func getClientConfig() (*rest.Config, error) {
-	return clientcmd.BuildConfigFromFlags("", path.Join(os.Getenv("HOME"), ".kube/config"))
 }
