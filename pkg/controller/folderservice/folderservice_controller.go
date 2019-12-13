@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -30,6 +29,7 @@ const (
 	awsCredsSecretIDKey     = "AWS_ACCESS_KEY_ID"
 	awsCredsSecretAccessKey = "AWS_SECRET_ACCESS_KEY"
 	bucketNameFromSecret    = "BUCKET_NAME"
+	username                = "username"
 )
 
 var log = logf.Log.WithName("controller_folderservice")
@@ -178,6 +178,26 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	//
 	iamSecret := newIAMSecretCR(instance, userSecret, resultAwsAccessKey, resultAwsSecretAccessKey)
 
+	secretOld := &corev1.Secret{}
+	err2 := r.client.Get(context.TODO(),
+		types.NamespacedName{
+			Name:      secretName,
+			Namespace: namespace,
+		},
+		secretOld)
+	if err2 != nil {
+		fmt.Println("Error in geting old secret")
+	}
+	secretOldAccessKeyID, ok := secretOld.Data[username]
+	if !ok {
+		fmt.Errorf("IAM credentials secret username did not contain key %v",
+			secretOldAccessKeyID)
+	}
+
+	if resultAwsAccessKey != string(secretOldAccessKeyID) {
+		err = r.client.Create(context.TODO(), iamSecret)
+	}
+
 	if err := controllerutil.SetControllerReference(instance, iamSecret, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -213,21 +233,6 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 
 	// return reconcile.Result{}, nil
 	return reconcile.Result{RequeueAfter: time.Second * 5}, nil
-}
-
-func setOwnerRef(secret *corev1.Secret) error {
-	ownerRef := generateOwnerRef(secret)
-	secret.SetOwnerReferences(ownerRef)
-	return nil
-}
-
-func generateOwnerRef(secret *corev1.Secret) []metav1.OwnerReference {
-	return []metav1.OwnerReference{
-		*metav1.NewControllerRef(secret, schema.GroupVersionKind{
-			Group:   appv1alpha1.SchemeGroupVersion.Group,
-			Version: appv1alpha1.SchemeGroupVersion.Version,
-		}),
-	}
 }
 
 // newIAMSecretCR returns a busybox pod with the same name/namespace as the cr
