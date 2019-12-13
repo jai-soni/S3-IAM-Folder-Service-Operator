@@ -118,7 +118,7 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	var secretName = instance.Spec.PlatformSecrets.AWS.Credentials.Name
-	var namespace = instance.Namespace
+	var namespace = "default"
 	var region = "us-east-1"
 	var userName = instance.Spec.UserName
 	var userSecret = instance.Spec.UserSecret.Name
