@@ -64,7 +64,8 @@ type FolderServiceList struct {
 
 // PlatformSecrets defines the secrets to be used by various clouds.
 type PlatformSecrets struct {
-	AWS *AWSPlatformSecrets `json:"aws"`
+	AWS       *AWSPlatformSecrets `json:"aws"`
+	NameSpace string              `json:"namespace"`
 }
 
 // AWSPlatformSecrets contains secrets for clusters on the AWS platform.

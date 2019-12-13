@@ -54,8 +54,11 @@ spec:
                   required:
                   - credentials
                   type: object
+                namespace:
+                  type: string
               required:
               - aws
+              - namespace
               type: object
             userName:
               description: CertificateSecret is the reference to the secret where
