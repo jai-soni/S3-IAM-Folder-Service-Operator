@@ -30,6 +30,7 @@ const (
 	awsCredsSecretAccessKey = "AWS_SECRET_ACCESS_KEY"
 	bucketNameFromSecret    = "BUCKET_NAME"
 	username                = "username"
+	reconcileTime           = 5
 )
 
 var log = logf.Log.WithName("controller_folderservice")
@@ -176,48 +177,42 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 		SetupComplete: true,
 	}
 	//
-	iamSecret := newIAMSecretCR(instance, userSecret, resultAwsAccessKey, resultAwsSecretAccessKey)
+	desired := newIAMSecretCR(instance, userSecret, resultAwsAccessKey, resultAwsSecretAccessKey)
 
-	secretOld := &corev1.Secret{}
-	err2 := r.client.Get(context.TODO(),
-		types.NamespacedName{
-			Name:      secretName,
-			Namespace: namespace,
-		},
-		secretOld)
-	if err2 != nil {
-		fmt.Println("Error in geting old secret")
-	}
-	secretOldAccessKeyID, ok := secretOld.Data[username]
-	if !ok {
-		fmt.Errorf("IAM credentials secret username did not contain key %v",
-			secretOldAccessKeyID)
-	}
-
-	if resultAwsAccessKey != string(secretOldAccessKeyID) {
-		err = r.client.Create(context.TODO(), iamSecret)
-	}
-
-	if err := controllerutil.SetControllerReference(instance, iamSecret, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(instance, desired, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 	// Check if this Secret already exists
-	found := &corev1.Secret{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: iamSecret.Name, Namespace: iamSecret.Namespace}, found)
+	current := &corev1.Secret{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, current)
+
 	if err != nil && errors.IsNotFound(err) {
 		var resultAwsAccessKey, resultAwsSecretAccessKey, _ = aws_s3_custom.CreateKeyIfNotExist(accessKeyID, secretAccessKey, userName, region)
-		iamSecret := newIAMSecretCR(instance, userSecret, resultAwsAccessKey, resultAwsSecretAccessKey)
-		reqLogger.Info("Creating a new Secret for IAM", "IAMSecret.Namespace", iamSecret.Namespace, "IAMSecret.Name", iamSecret.Name)
-		err = r.client.Create(context.TODO(), iamSecret)
+		desired2 := newIAMSecretCR(instance, userSecret, resultAwsAccessKey, resultAwsSecretAccessKey)
+		reqLogger.Info("Creating a new Secret for IAM", "IAMSecret.Namespace", desired.Namespace, "IAMSecret.Name", desired.Name)
+		err = r.client.Create(context.TODO(), desired2)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		// IAM Secret created successfully - don't requeue
 		// return reconcile.Result{}, nil
-		return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+		return reconcile.Result{RequeueAfter: time.Second * reconcileTime}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	// if Secret exists, only update if versionId has changed
+	if string(current.Data["username"]) != desired.StringData["username"] {
+		reqLogger.Info("versionId changed, Updating the Secret", "desired.Namespace", desired.Namespace, "desired.Name", desired.Name)
+		err = r.client.Update(context.TODO(), desired)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		// Secret updated successfully - requeue after 5 minutes
+		reqLogger.Info("Secret Updated successfully, RequeueAfter 5 minutes")
+		return reconcile.Result{RequeueAfter: time.Second * reconcileTime}, nil
 	}
 
 	if !reflect.DeepEqual(instance.Status, status) {
@@ -232,7 +227,7 @@ func (r *ReconcileFolderService) Reconcile(request reconcile.Request) (reconcile
 	fmt.Println("After> " + strconv.FormatBool(instance.Status.SetupComplete))
 
 	// return reconcile.Result{}, nil
-	return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+	return reconcile.Result{RequeueAfter: time.Second * reconcileTime}, nil
 }
 
 // newIAMSecretCR returns a busybox pod with the same name/namespace as the cr

@@ -131,6 +131,22 @@ func CreateUserIfNotExist(accessKeyID, secretAccessKey, userName, region string)
 		fmt.Println("awsAccessKey :", awsAccessKey)
 		fmt.Println("awsSecretAccessKey :", awsSecretAccessKey)
 		return
+	} else {
+		if err != nil {
+			fmt.Println("Error", err)
+			return
+		}
+		result, err := svc.ListAccessKeys(&iam.ListAccessKeysInput{
+			MaxItems: aws.Int64(5),
+			UserName: aws.String(userName),
+		})
+		if err != nil {
+			fmt.Println("Error", err)
+			return
+		}
+		for _, b := range result.AccessKeyMetadata {
+			awsAccessKey = *b.AccessKeyId
+		}
 	}
 	return
 }
