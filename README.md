@@ -31,7 +31,7 @@ spec:
     aws:
       credentials:
         name: iam-secret
-        namespace: {{names-pace}}
+    namespace: names-pace
 ```
 
 ## Commands for setup
