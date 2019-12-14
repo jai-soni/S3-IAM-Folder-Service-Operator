@@ -1,10 +1,10 @@
 # AWS S3 Folder Service Operator
 
+Operators are pieces of software that ease the operational complexity of running another piece of software. More technically, Operators are a method of packaging, deploying, and managing a Kubernetes application.
 
 The AWS Folder Service Operator provides an extension to AWS S3 bucket service
 that automates creation of self healing S3 folder for a given user.
 A Chart release is described through a Kubernetes custom resource named team2-kubeop-helmchart. 
-
 
 ## AWS S3 Folder Service Operator features
 
@@ -14,7 +14,6 @@ A Chart release is described through a Kubernetes custom resource named team2-ku
 * Secret of the IAM user is stored in user defined IAM secret name
 * Self healing for deleted IAM secret (Event driven)
 * Self AWS resources (Time driven)
-
 
 
 ## Expected Custome Resource (CR) Definition
@@ -33,8 +32,6 @@ spec:
       credentials:
         name: iam-secret
 ```
-
-
 
 ## Commands for setup
 ```bash
@@ -55,6 +52,13 @@ operator-sdk generate k8s && operator-sdk generate openapi
 operator-sdk up local
 ```
 
+## Commands to dockerize the operator
+
+```bash	
+operator-sdk build {{docker username}}/team2-kubeop:latest
+
+docker push {{docker username}}/team2-kubeop:latest
+```
 
 ## Developer information
 
